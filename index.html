@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Multi-Launcher Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=JetBrains+Mono&display=swap');
+        
+        :root {
+            --mc-blue: #3b82f6;
+            --mc-bg: #0a0a0b;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: var(--mc-bg);
+            color: #e2e8f0;
+            background-image: radial-gradient(circle at 2px 2px, #1a1a1a 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+
+        .glass-panel {
+            background: rgba(18, 18, 20, 0.95);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+
+        .source-card, .version-card {
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .source-card.active, .version-card.active {
+            border: 2px solid var(--mc-blue) !important;
+            background: rgba(59, 130, 246, 0.08) !important;
+        }
+
+        /* 模拟像素边框动画 */
+        .launch-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .launch-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .launch-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        input, select {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body class="h-screen flex items-center justify-center p-4">
+
+    <div class="glass-panel w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row h-[650px]">
+        
+        <!-- 左侧导航栏 -->
+        <div class="w-16 md:w-20 bg-black/40 border-r border-white/5 flex flex-col items-center py-6 gap-8">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <nav class="flex flex-col gap-6">
+                <button onclick="switchTab('main')" class="text-blue-500 hover:scale-110 transition-transform"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg></button>
+                <button onclick="switchTab('settings')" class="text-slate-500 hover:text-white transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg></button>
+            </nav>
+        </div>
+
+        <!-- 中间内容区 -->
+        <div id="tab-main" class="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <!-- 账户与设置 -->
+            <div class="w-full md:w-1/2 p-8 border-r border-white/5 flex flex-col">
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xs font-bold text-blue-400 tracking-widest uppercase">身份验证</h2>
+                        <span id="auth-tag" class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-slate-400">离线模式</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <button onclick="handleMicrosoftAuth()" class="flex-1 py-2.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded-lg text-xs font-bold transition-all">Microsoft 登录</button>
+                            <button onclick="toggleOffline()" class="px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-xs">切换离线</button>
+                        </div>
+                        <div id="offline-input-group">
+                            <input type="text" id="username" placeholder="输入玩家 ID" class="w-full px-4 py-2.5 rounded-lg text-sm outline-none focus:border-blue-500/50">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <h2 class="text-xs font-bold text-blue-400 mb-4 tracking-widest uppercase">资源下载源</h2>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div id="src-mojang" onclick="setSource('mojang')" class="source-card active p-2 rounded-lg border border-white/5 cursor-pointer">
+                            <div class="text-[10px] font-bold">Mojang</div>
+                            <div class="text-[8px] text-slate-500">官方</div>
+                        </div>
+                        <div id="src-bmcl" onclick="setSource('bmcl')" class="source-card p-2 rounded-lg border border-white/5 cursor-pointer">
+                            <div class="text-[10px] font-bold">BMCLAPI</div>
+                            <div class="text-[8px] text-slate-500">镜像</div>
+                        </div>
+                        <div id="src-bbs" onclick="setSource('bbs')" class="source-card p-2 rounded-lg border border-white/5 cursor-pointer">
+                            <div class="text-[10px] font-bold">BBSMC</div>
+                            <div class="text-[8px] text-slate-500">国内</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto p-4 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+                        <div class="text-[10px] leading-relaxed">
+                            无后端模式已启用。配置文件将暂存在浏览器 IndexedDB 中。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 启动与状态 -->
+            <div class="w-full md:w-1/2 p-8 bg-black/20 flex flex-col">
+                <div class="flex justify-between items-start mb-10">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">READY TO PLAY</h1>
+                        <p id="bridge-status" class="text-[10px] text-red-500 font-mono">BRIDGE DISCONNECTED</p>
+                    </div>
+                    <button onclick="syncGlobalConfig()" class="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div id="ver-java" onclick="selectVersion('java')" class="version-card active p-5 rounded-2xl cursor-pointer flex items-center gap-5">
+                        <div class="text-3xl">☕</div>
+                        <div>
+                            <div class="text-sm font-bold">Java Edition</div>
+                            <div class="text-[10px] text-slate-500">最高支持 1.20.4 (OptiFine)</div>
+                        </div>
+                    </div>
+                    <div id="ver-bedrock" onclick="selectVersion('bedrock')" class="version-card p-5 rounded-2xl cursor-pointer flex items-center gap-5">
+                        <div class="text-3xl">🧊</div>
+                        <div>
+                            <div class="text-sm font-bold">Bedrock Edition</div>
+                            <div class="text-[10px] text-slate-500">Windows Store 协议调起</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto">
+                    <div class="flex justify-between mb-2">
+                        <span id="status-text" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">系统待命</span>
+                        <span id="percent-text" class="text-[10px] font-mono text-slate-400 tracking-tighter">0%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-6">
+                        <div id="progress-bar" class="h-full bg-blue-500 transition-all duration-700 w-0 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+                    </div>
+
+                    <button id="launch-btn" onclick="handleLaunch()" class="launch-btn w-full bg-white text-black py-4 rounded-xl font-bold text-lg">
+                        开始冒险
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设置面板 (隐藏) -->
+        <div id="tab-settings" class="hidden flex-1 p-10 overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-8">启动器设置</h2>
+            <div class="space-y-8 max-w-xl">
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-2 font-bold uppercase">JVM 内存分配 (MB)</label>
+                        <input type="number" id="jvm-memory" value="4096" class="w-full px-4 py-2 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-2 font-bold uppercase">Java 路径</label>
+                        <input type="text" id="java-path" value="Default" class="w-full px-4 py-2 rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-2 font-bold uppercase">调试模式</label>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="debug-mode" class="w-4 h-4 rounded bg-white/10">
+                        <span class="text-sm">在启动时打开控制台窗口</span>
+                    </div>
+                </div>
+                <button onclick="switchTab('main')" class="px-6 py-2 bg-blue-600 rounded-lg text-sm font-bold">保存并返回</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 迷你日志浮层 -->
+    <div id="mini-log" class="fixed bottom-6 right-6 w-72 bg-black/90 rounded-xl border border-white/10 p-4 font-mono text-[10px] text-slate-400 hidden shadow-2xl">
+        <div class="flex justify-between items-center mb-2 border-b border-white/5 pb-1">
+            <span class="text-blue-500 font-bold tracking-tighter">TERMINAL</span>
+            <button onclick="this.parentElement.parentElement.classList.add('hidden')" class="hover:text-white">×</button>
+        </div>
+        <div id="log-content" class="h-32 overflow-y-auto space-y-1"></div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8080";
+        let state = {
+            version: 'java',
+            source: 'mojang',
+            isLocalhost: false,
+            isAuth: false,
+            user: null
+        };
+
+        // --- 全功能初始化 ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            writeLog("核心模块初始化中...");
+            await checkConnection();
+            // 已移除未定义的 initUI() 调用，改为直接执行初始化日志
+            writeLog("UI 渲染完成，等待用户指令。");
+        });
+
+        async function checkConnection() {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                
+                const res = await fetch(`${API_BASE}/ping`, { signal: controller.signal }).catch(() => null);
+                clearTimeout(timeoutId);
+
+                if (res && res.ok) {
+                    state.isLocalhost = true;
+                    const badge = document.getElementById('bridge-status');
+                    badge.innerText = "LOCAL BRIDGE CONNECTED";
+                    badge.className = "text-[10px] text-green-500 font-mono";
+                    writeLog("已检测到本地 C++ 后端进程。");
+                } else {
+                    writeLog("未检测到后端，启用备用浏览器协议。");
+                }
+            } catch (e) {
+                writeLog("后端连接尝试失败。");
+            }
+        }
+
+        function writeLog(msg) {
+            const logPanel = document.getElementById('mini-log');
+            const logContent = document.getElementById('log-content');
+            if (!logPanel || !logContent) return;
+            
+            logPanel.classList.remove('hidden');
+            const div = document.createElement('div');
+            div.innerHTML = `<span class="text-slate-600">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            logContent.appendChild(div);
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        // --- UI 逻辑 ---
+        function switchTab(tabId) {
+            document.getElementById('tab-main').classList.toggle('hidden', tabId !== 'main');
+            document.getElementById('tab-settings').classList.toggle('hidden', tabId !== 'settings');
+        }
+
+        function setSource(src) {
+            state.source = src;
+            document.querySelectorAll('.source-card').forEach(c => c.classList.remove('active'));
+            const activeCard = document.getElementById(`src-${src}`);
+            if (activeCard) activeCard.classList.add('active');
+            writeLog(`切换下载源至镜像: ${src.toUpperCase()}`);
+        }
+
+        function selectVersion(v) {
+            state.version = v;
+            document.querySelectorAll('.version-card').forEach(c => c.classList.remove('active'));
+            const activeCard = document.getElementById(`ver-${v}`);
+            if (activeCard) activeCard.classList.add('active');
+            writeLog(`选择游戏版本: ${v.toUpperCase()}`);
+        }
+
+        function toggleOffline() {
+            state.isAuth = false;
+            document.getElementById('auth-tag').innerText = "离线模式";
+            writeLog("切换到离线登录模式。");
+        }
+
+        // --- 核心功能请求 ---
+        async function handleMicrosoftAuth() {
+            if (!state.isLocalhost) {
+                writeLog("[WARN] 无后端模式无法进行微软登录。");
+                return alert("请先运行本地桥接器以处理 OAuth。");
+            }
+            writeLog("正在请求本地 C++ 开启微软登录验证...");
+            try {
+                const res = await fetch(`${API_BASE}/auth/microsoft`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    state.isAuth = true;
+                    state.user = data.user;
+                    document.getElementById('username').value = data.user.name;
+                    document.getElementById('auth-tag').innerText = "正版已登录";
+                    writeLog(`欢迎回来, ${data.user.name}!`);
+                }
+            } catch (e) {
+                writeLog("认证过程超时或被取消。");
+            }
+        }
+
+        async function syncGlobalConfig() {
+            writeLog("正在从云端拉取版本清单...");
+            updateUI("同步中", "正在解析 JSON 索引...", 40);
+            
+            const url = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Network response was not ok");
+                const data = await res.json();
+                writeLog(`同步成功: 已获取 ${data.versions.length} 个版本信息。`);
+                updateUI("就绪", "配置同步完成", 100);
+                
+                setTimeout(() => updateUI("系统待命", "0%", 0), 2000);
+            } catch (e) {
+                writeLog(`同步失败: ${e.message}。将使用本地缓存。`);
+                updateUI("同步失败", "网络连接异常", 0);
+            }
+        }
+
+        async function handleLaunch() {
+            const btn = document.getElementById('launch-btn');
+            btn.disabled = true;
+            updateUI("初始化", "正在构建启动命令参数...", 10);
+
+            const payload = {
+                version: state.version,
+                source: state.source,
+                username: document.getElementById('username').value || "Player",
+                memory: document.getElementById('jvm-memory').value,
+                isAuth: state.isAuth
+            };
+
+            if (state.version === 'bedrock') {
+                writeLog("正在唤醒 Windows 商店基岩版协议 (minecraft://)...");
+                window.location.href = "minecraft://";
+                updateUI("运行中", "协议已发送", 100);
+                setTimeout(() => { 
+                    btn.disabled = false;
+                    updateUI("系统待命", "0%", 0);
+                }, 3000);
+            } else {
+                if (!state.isLocalhost) {
+                    writeLog("[FAIL] Java 版需要 C++ 权限调起本地 JVM 环境。");
+                    updateUI("无法启动", "后端未连接", 0);
+                    btn.disabled = false;
+                    return;
+                }
+                
+                try {
+                    writeLog("发送启动指令至后端...");
+                    const res = await fetch(`${API_BASE}/launch`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        updateUI("成功", "Java 进程已在后台调起", 100);
+                        writeLog("[SUCCESS] 游戏已拉起。");
+                    } else {
+                        throw new Error("后端执行失败");
+                    }
+                } catch (e) {
+                    writeLog(`[ERROR] 启动失败: ${e.message}`);
+                    updateUI("通信错误", "请求超时", 0);
+                }
+                btn.disabled = false;
+            }
+        }
+
+        function updateUI(status, detail, p) {
+            const sText = document.getElementById('status-text');
+            const pText = document.getElementById('percent-text');
+            const pBar = document.getElementById('progress-bar');
+            
+            if (sText) sText.innerText = status;
+            if (pText) pText.innerText = typeof p === 'number' ? p + "%" : p;
+            if (pBar) pBar.style.width = p + "%";
+        }
+    </script>
+</body>
+</html>
