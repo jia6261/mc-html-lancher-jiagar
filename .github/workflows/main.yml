@@ -24,6 +24,12 @@ jobs:
         with:
           node-version: "18.x"
 
+      - name: "Debug: List Files"
+        run: |
+          echo "当前工作目录: $(pwd)"
+          echo "仓库文件列表:"
+          ls -R
+
       - name: "Initialize package.json"
         run: |
           if [ ! -f package.json ]; then
@@ -35,18 +41,28 @@ jobs:
         
       - name: "Run Test Server"
         run: |
-          # 1. 启动服务器并记录日志
-          node server.js > server.log 2>&1 & 
+          # 自动寻找 server.js 的位置
+          SERVER_PATH=$(find . -name "server.js" | head -n 1)
           
-          # 2. 定义 URL 变量，防止 Markdown 自动格式化干扰
-          # 使用拼接方式确保 shell 脚本中不出现原始链接格式
+          if [ -z "$SERVER_PATH" ]; then
+            echo "❌ 错误: 在仓库中找不到 server.js 文件！"
+            echo "请确保你的文件命名全为小写，并已上传到 GitHub。"
+            exit 1
+          fi
+          
+          echo "找到服务器文件: $SERVER_PATH"
+          
+          # 1. 启动服务器并记录日志
+          node "$SERVER_PATH" > server.log 2>&1 & 
+          
+          # 2. 定义 URL 变量
           PROTO="http"
           HOST="127.0.0.1"
           ADDR="${PROTO}://${HOST}:3000"
           
           echo "等待端口 3000..."
           
-          # 3. 使用变量进行测试，避免直接在命令行出现链接
+          # 3. 等待端口就绪
           timeout 30s bash -c "until curl -s ${ADDR}/versions > /dev/null; do sleep 2; done" || (echo "❌ 服务启动超时，日志如下：" && cat server.log && exit 1)
           
           # 4. 执行测试请求
@@ -68,9 +84,11 @@ jobs:
 
       - name: "Prepare Website Files"
         run: |
-          # 将你的 HTML 重命名为 index.html，否则部署后会 404
-          if [ -f launcher_redesign.html ]; then
-            mv launcher_redesign.html index.html
+          # 寻找 HTML 文件并重命名为 index.html
+          HTML_FILE=$(find . -name "*.html" ! -name "index.html" | head -n 1)
+          if [ -f "$HTML_FILE" ]; then
+            echo "将 $HTML_FILE 重命名为 index.html"
+            mv "$HTML_FILE" index.html
           fi
 
       - name: "Setup Pages"
