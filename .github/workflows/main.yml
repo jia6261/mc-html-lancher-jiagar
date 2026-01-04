@@ -35,15 +35,22 @@ jobs:
         
       - name: "Run Test Server"
         run: |
-          # 启动服务器并记录日志
+          # 1. 启动服务器并记录日志
           node server.js > server.log 2>&1 & 
           
-          # 等待端口就绪。这里必须使用纯文本 URL，不能带中括号
-          echo "等待端口 3000..."
-          timeout 30s bash -c 'until curl -s [http://127.0.0.1:3000/versions](http://127.0.0.1:3000/versions) > /dev/null; do sleep 2; done' || (echo "❌ 服务启动超时，日志如下：" && cat server.log && exit 1)
+          # 2. 定义 URL 变量，防止 Markdown 自动格式化干扰
+          # 使用拼接方式确保 shell 脚本中不出现原始链接格式
+          PROTO="http"
+          HOST="127.0.0.1"
+          ADDR="${PROTO}://${HOST}:3000"
           
-          # 测试启动请求
-          curl -X POST [http://127.0.0.1:3000/launch](http://127.0.0.1:3000/launch) \
+          echo "等待端口 3000..."
+          
+          # 3. 使用变量进行测试，避免直接在命令行出现链接
+          timeout 30s bash -c "until curl -s ${ADDR}/versions > /dev/null; do sleep 2; done" || (echo "❌ 服务启动超时，日志如下：" && cat server.log && exit 1)
+          
+          # 4. 执行测试请求
+          curl -X POST "${ADDR}/launch" \
             -H "Content-Type: application/json" \
             -d '{"version": "1.20.1", "username": "CI_Tester"}'
         env:
