@@ -38,7 +38,7 @@ jobs:
           # 启动服务器并记录日志
           node server.js > server.log 2>&1 & 
           
-          # 等待端口就绪。修复了链接语法错误，确保是纯文本 URL
+          # 等待端口就绪。这里必须使用纯文本 URL，不能带中括号
           echo "等待端口 3000..."
           timeout 30s bash -c 'until curl -s [http://127.0.0.1:3000/versions](http://127.0.0.1:3000/versions) > /dev/null; do sleep 2; done' || (echo "❌ 服务启动超时，日志如下：" && cat server.log && exit 1)
           
