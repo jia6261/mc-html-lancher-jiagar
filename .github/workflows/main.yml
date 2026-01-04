@@ -1,0 +1,63 @@
+name: UniLauncher CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# 设置权限以允许 GitHub Actions 部署到 GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  # 任务 1：测试后端启动逻辑
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Run Test Launch
+      run: |
+        # 启动后端并置于后台
+        node server.js & 
+        sleep 5
+        # 使用 curl 模拟前端发送启动请求，验证后端逻辑是否正常
+        curl -X POST http://localhost:3000/launch \
+          -H "Content-Type: application/json" \
+          -d '{"version": "1.20.1", "username": "CI_Tester"}'
+      env:
+        GITHUB_ACTIONS: true
+        GAME_DIR: ./test_mc_dir
+
+  # 任务 2：部署前端到 GitHub Pages
+  deploy-frontend:
+    needs: test-backend # 只有后端测试通过后才执行部署
+    if: github.ref == 'refs/heads/main' # 仅在推送到 main 分支时触发
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        # 这里的路径指向你存放前端 HTML 的目录
+        # 如果 html 在根目录，则填 "."
+        path: '.'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
