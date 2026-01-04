@@ -1,89 +1,85 @@
-/**
- * UniLauncher Backend - 重制版启动核心
- * 需要安装依赖: npm install express cors axios
- */
+name: UniLauncher CI/CD
 
-const express = require('express');
-const cors = require('cors');
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const axios = require('axios');
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+# 设置权限以允许 GitHub Actions 部署到 GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-// 模拟 PCL2 的游戏路径管理
-const GAME_DIR = path.join(process.env.APPDATA || process.env.HOME, '.unilauncher');
+jobs:
+  # 任务 1：测试后端启动逻辑
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
 
-// 确保目录存在
-if (!fs.existsSync(GAME_DIR)) {
-    fs.mkdirSync(GAME_DIR, { recursive: true });
-}
+    - name: Initialize Environment
+      run: |
+        # 如果不存在 package.json，则创建一个基础版防止 npm install 报错
+        if [ ! -f package.json ]; then
+          echo '{"name":"unilauncher-backend","version":"1.0.0","dependencies":{"express":"^4.18.2","cors":"^2.8.5","axios":"^1.4.0"}}' > package.json
+        fi
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Run Test Launch
+      run: |
+        # 启动后端并置于后台，记录日志
+        node server.js > server.log 2>&1 & 
+        
+        # 优化：循环检查端口是否就绪 (最多等待 30 秒)
+        echo "等待后端服务就绪..."
+        for i in {1..30}; do
+          if curl -s http://localhost:3000/versions > /dev/null; then
+            echo "服务已启动!"
+            break
+          fi
+          if [ $i -eq 30 ]; then
+            echo "错误: 服务启动超时"
+            cat server.log
+            exit 1
+          fi
+          sleep 1
+        done
 
-/**
- * 启动游戏接口
- * 此接口通过子进程拉起 Minecraft
- */
-app.post('/launch', async (req, res) => {
-    const { version, username, javaPath } = req.body;
+        # 执行启动指令测试
+        curl -X POST http://localhost:3000/launch \
+          -H "Content-Type: application/json" \
+          -d '{"version": "1.20.1", "username": "CI_Tester"}'
+      env:
+        GITHUB_ACTIONS: true
+        GAME_DIR: ./test_mc_dir
 
-    console.log(`[Launch] 收到启动请求: ${version} 用户: ${username}`);
+  # 任务 2：部署前端到 GitHub Pages
+  deploy-frontend:
+    needs: test-backend # 只有后端测试通过后才执行部署
+    if: github.ref == 'refs/heads/main' # 仅在推送到 main 分支时触发
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
 
-    // 这里是模拟的启动参数。
-    // 在真实场景中，我们需要解析 versions/${version}/${version}.json 
-    // 来动态生成 classpath 和所有依赖项。
-    const args = [
-        "-Xmx2G",
-        "-XX:+UseG1GC",
-        "-Djava.library.path=" + path.join(GAME_DIR, "natives"),
-        "-cp", path.join(GAME_DIR, `versions/${version}/${version}.jar`),
-        "net.minecraft.client.main.Main",
-        "--username", username,
-        "--version", version,
-        "--gameDir", GAME_DIR,
-        "--assetsDir", path.join(GAME_DIR, "assets"),
-        "--assetIndex", version,
-        "--uuid", "0",
-        "--accessToken", "0",
-        "--userType", "legacy"
-    ];
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
 
-    try {
-        // 实际上你会在这里检查 Java 是否存在
-        const child = spawn(javaPath || 'java', args, {
-            cwd: GAME_DIR,
-            detached: true,
-            stdio: 'inherit'
-        });
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        # 确保你的 HTML 文件（如 index.html）在此路径下
+        path: '.'
 
-        child.on('error', (err) => {
-            console.error("启动失败:", err);
-        });
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
 
-        res.json({ success: true, message: "进程已创建" });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-/**
- * 获取下载源 API (中转 BMCLAPI)
- */
-app.get('/versions', async (req, res) => {
-    try {
-        const response = await axios.get('https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json');
-        res.json(response.data);
-    } catch (e) {
-        res.status(503).json({ error: "无法连接到下载源" });
-    }
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`-----------------------------------------`);
-    console.log(`🚀 UniLauncher Backend 运行在端口: ${PORT}`);
-    console.log(`📂 游戏根目录: ${GAME_DIR}`);
-    console.log(`-----------------------------------------`);
-});
