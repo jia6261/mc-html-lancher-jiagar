@@ -1,6 +1,6 @@
-**
+/**
  * UniLauncher Backend - 重制版启动核心
- * * 此文件是项目的后端部分，负责处理游戏启动逻辑和 API 中转。
+ * 此文件是项目的后端部分，负责处理游戏启动逻辑和 API 中转。
  * GitHub Actions 会自动检测并运行此文件进行集成测试。
  */
 
@@ -44,7 +44,7 @@ app.post('/launch', async (req, res) => {
 
     console.log(`[启动] 收到请求: 版本 ${version}, 玩家 ${username}`);
 
-    // 核心启动参数模拟（在 CI 环境中仅做逻辑校验）
+    // 核心启动参数模拟
     const args = [
         "-Xmx2G",
         "-Djava.library.path=" + path.join(GAME_DIR, "natives"),
@@ -57,7 +57,7 @@ app.post('/launch', async (req, res) => {
     ];
 
     try {
-        // 如果是在 GitHub Actions 环境下，我们不真正启动游戏，只返回成功以通过测试
+        // 如果是在 GitHub Actions 环境下，不真正启动游戏，只返回成功以通过测试
         if (process.env.GITHUB_ACTIONS === 'true') {
             console.log("[CI] 检测到自动化环境，参数校验通过。");
             return res.json({ success: true, message: "CI 环境校验成功" });
