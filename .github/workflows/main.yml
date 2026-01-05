@@ -17,10 +17,10 @@ jobs:
   test-backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: "Setup Node.js"
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "18.x"
 
@@ -41,31 +41,23 @@ jobs:
         
       - name: "Run Test Server"
         run: |
-          # 自动寻找 server.js 的位置
-          SERVER_PATH=$(find . -name "server.js" | head -n 1)
+          # 自动寻找 server.js 的位置 (不区分大小写查找)
+          SERVER_PATH=$(find . -iname "server.js" | head -n 1)
           
           if [ -z "$SERVER_PATH" ]; then
             echo "❌ 错误: 在仓库中找不到 server.js 文件！"
-            echo "请确保你的文件命名全为小写，并已上传到 GitHub。"
             exit 1
           fi
           
-          echo "找到服务器文件: $SERVER_PATH"
-          
-          # 1. 启动服务器并记录日志
           node "$SERVER_PATH" > server.log 2>&1 & 
           
-          # 2. 定义 URL 变量
           PROTO="http"
           HOST="127.0.0.1"
           ADDR="${PROTO}://${HOST}:3000"
           
           echo "等待端口 3000..."
-          
-          # 3. 等待端口就绪
           timeout 30s bash -c "until curl -s ${ADDR}/versions > /dev/null; do sleep 2; done" || (echo "❌ 服务启动超时，日志如下：" && cat server.log && exit 1)
           
-          # 4. 执行测试请求
           curl -X POST "${ADDR}/launch" \
             -H "Content-Type: application/json" \
             -d '{"version": "1.20.1", "username": "CI_Tester"}'
@@ -80,25 +72,23 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: "Prepare Website Files"
         run: |
-          # 寻找 HTML 文件并重命名为 index.html
           HTML_FILE=$(find . -name "*.html" ! -name "index.html" | head -n 1)
-          if [ -f "$HTML_FILE" ]; then
-            echo "将 $HTML_FILE 重命名为 index.html"
+          if [ -n "$HTML_FILE" ] && [ -f "$HTML_FILE" ]; then
             mv "$HTML_FILE" index.html
           fi
 
       - name: "Setup Pages"
-        uses: actions/configure-pages@v3
+        uses: actions/configure-pages@v4
 
       - name: "Upload Artifact"
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: "."
 
       - name: "Deploy to GitHub Pages"
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
